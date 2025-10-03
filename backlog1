@@ -1,0 +1,73 @@
+-- Displays the category of each related item rather than the parent’s
+
+SELECT 
+    i.item AS [Parent ItemNumber],
+    r.item AS [Related ItemNumber],
+    rc.Category AS [Related ItemCategory],  -- using rc instead of c
+    r.Description AS [Related ItemDescription]
+FROM ICItems i
+    LEFT JOIN ICItemRelatedItems ir ON i.itemID = ir.itemID
+    LEFT JOIN ICItems r ON r.ItemID = ir.RelatedItemID
+    LEFT JOIN dbo.ICCategories rc ON r.CategoryID = rc.CategoryID  -- related item category
+    LEFT JOIN ICModels mo ON i.modelID = mo.modelID
+WHERE i.Active = 1
+  AND i.item IN ('ENTER EA PRODUCT CODE HERE')
+ORDER BY [Related ItemNumber];
+
+
+-- Displays General Related Items --
+
+SELECT i.item [Parent ItemNumber] ,
+--i.baseoutcost,
+--i.OnHandQty [General Model Hand Qyt],
+--icw.OnHandQty[ICW OnHand Qty],
+--icw.Allocated,
+--w.Description [Warehouse Description],
+--r. itemID[Related ItemID],
+r.item [Related ItemNumber],
+c.Category,
+r.Description [Related ItemDescription]
+--r.LastUpdate,
+--mo.Model [Model],
+--mo.Description [Model Description]
+from ICItems i
+    LEFT JOIN ICItemRelatedItems ir on i.itemID = ir.itemID
+	LEFT JOIN dbo.ICCategories c ON i.CategoryID = c.CategoryID
+    LEFT join icitems r on r.ItemID = ir.RelatedItemID
+ LEFT join ICModels mo on i.modelID = mo.modelID
+-- join ICItemWarehouses icw on icw.ItemID = i.itemID
+-- join ICWarehouses w on w.warehouseid = icw.warehouseid
+Where i.Active = 1 --and r.categoryID = 17 
+and 
+i.item in (
+'ENTER EA PRODUCT CODE HERE'
+)
+--and c.Category = 'Sup'
+--and r.Description NOT LIKE ('%Developer%')
+--and r.Description NOT LIKE ('%Drum%')
+--and r.item NOT LIKE ('%Disc%')
+--and r.item NOT LIKE ('%White%')
+--and r.item NOT LIKE ('%freight%')
+--and (r.item LIKE '9DEL%'
+--OR r.item LIKE '9NET%')
+
+ORDER BY [Related ItemNumber]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
