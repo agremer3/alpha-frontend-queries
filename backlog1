@@ -1,73 +1,452 @@
--- Displays the category of each related item rather than the parent’s
+Prepare the following for transfer to github repository:
+
+-- Search for tables by name pattern 
+
+  
+
+SELECT name AS TableName 
+
+FROM sys.tables 
+
+WHERE name LIKE '%CustomProperties%'; 
+
+  
+
+  
+
+-- Search for columns by name pattern 
+
+  
+
+SELECT  
+
+    TABLE_SCHEMA, 
+
+    TABLE_NAME, 
+
+    COLUMN_NAME, 
+
+    DATA_TYPE 
+
+FROM INFORMATION_SCHEMA.COLUMNS 
+
+WHERE COLUMN_NAME LIKE '%Cost%'; 
+ 
+ 
+-- Sales Orders (E-Merge) 
+
+  
+
+SELECT CONCAT(SOOrders.SONumber, ' ', ' shipping to', ' ', SOOrders.ShipToCity, ', ', SOOrders.ShipToState , ',', ' ',  'had Dropship Warehouse', ' ', SOOrders.Description) AS DropshipAdjustment 
+
+FROM SOOrders 
+
+WHERE SOOrders.CreateDate > '2024-09-01' 
+
+  AND SOOrders.Description LIKE '%changed to%' 
+
+  AND SOOrders.Description LIKE '% AG%' 
+
+ORDER BY SOOrders.CreateDate; 
+ 
+------------------------------------------------------------------------------------------------------------------------------------------- 
+-- Finding Backordered/Zeroed Qty Items 
+ 
+ 
+SELECT  
+
+    so.SONumber,  -- Sales order number from SOOrders 
+
+so.QuantityBackOrdered, -- Amount of backordered items 
+
+sod.Description, -- Item description from SOOrderDetails 
+
+    sod.ItemID,   -- Item identifier from SOOrderDetails 
+
+    sot.OrderType -- Order type label (e.g., "Supply Order") 
+
+FROM dbo.SOOrders so 
+
+JOIN dbo.SOOrderDetails sod  
+
+    ON so.SOID = sod.SOID -- Match SOID between SOOrders and SOOrderDetails 
+
+JOIN dbo.SOOrderTypes sot 
+
+    ON so.OrderTypeID = sot.OrderTypeID -- Match OrderTypeID between SOOrders and SOOrderTypes 
+
+WHERE so.CreateDate > '2024-02-17'  -- Filters orders created after this date 
+
+AND so.QuantityBackOrdered > 0     -- Filters only items that are backordered 
+
+AND sot.Description LIKE '%Supply Order%'  -- Filters only "Supply Order" type 
+
+ORDER BY so.SONumber, sod.ItemID; 
+ 
+------------------------------------------------------------------------------------------------------------------------------------------- 
+ 
+SELECT  
+
+    i.ItemID,               -- Item identifier from Inventory 
+
+i.Item, -- Item Number 
+
+I.CreateDate, -- Item Creation Date 
+
+    i.Description,          -- Item description from Inventory 
+
+    i.OnHandQty,       -- On-hand quantity (must be 0) 
+
+    i.Ordered,      -- Open order quantity (must be 0) 
+
+    i.BackOrdered,  -- Backordered quantity (must be 0) 
+
+i.DefectiveQty, -- Defective quantity (must be 0) 
+
+i.UnavailableQty, -- Unavailable quantity (must be 0) 
+
+i.Allocated, -- Allocated quantity (must be 0) 
+
+c.Category, -- Item Category 
+
+    po.PONumber,            -- Last purchase order number 
+
+    po.Date               -- Date of the last purchase order 
+
+FROM dbo.ICItems i 
+
+LEFT JOIN dbo.ICCategories c ON i.CategoryID = c.CategoryID 
+
+LEFT JOIN ( 
+
+    SELECT  
+
+        pod.ItemID,  
+
+        po.PONumber,  
+
+        po.Date, 
+
+        ROW_NUMBER() OVER (PARTITION BY pod.ItemID ORDER BY po.Date DESC) AS RowNum 
+
+    FROM dbo.POOrderDetails pod 
+
+    JOIN dbo.POOrders po ON pod.POID = po.POID 
+
+) po ON i.ItemID = po.ItemID AND po.RowNum = 1  -- Fetches the last PO for each item 
+
+WHERE i.OnHandQty = 0  -- On-hand quantity must be 0 
+
+AND i.Ordered = 0    -- No open orders 
+
+AND i.BackOrdered = 0  -- No backorders 
+
+AND i.OnHandQty = 0  -- No On Hand Qty 
+
+AND i.DefectiveQty = 0  -- No Defective Qty 
+
+AND i.UnavailableQty = 0  -- No Unavailable Qty 
+
+AND i.Allocated = 0  -- No Allocated Qty 
+
+AND c.Category = 'Printer' -- Must be Sup, Access, Printer, etc. 
+
+ORDER BY po.Date DESC;  -- Orders by most recent PO date 
+ 
+ 
+------------------------------------------------------------------------------------------------------------------------------------------- 
+ 
+SELECT  
+
+    o.SONumber,               -- Sales Order number from header 
+
+    o.CustomerID,             -- Customer ID 
+
+o.QuantityBackOrdered, 
+
+o.AmountBackOrdered,     -- Quantity Backordered 
+
+    d.ItemID,                 -- Internal Item ID (int) 
+
+    d.Shipped,                -- Quantity shipped per SO 
+
+    d.BackOrdered,            -- Backordered quantity per SO 
+
+    i.Item                    -- Item code like 'TN436C-COMP' 
+
+FROM dbo.SOOrders o 
+
+JOIN dbo.SOOrderDetails d ON o.SOID = d.SOID 
+
+JOIN dbo.ICItems i ON d.ItemID = i.ItemID 
+
+WHERE i.Item = 'TN436C-OEM' 
+
+  AND o.AmountBackOrdered <> 0 
+
+  OR i.Item = 'TN436C-OEM' 
+
+  AND o.QuantityBackOrdered <> 0; 
+ 
+------------------------------------------------------------------------------------------------------------------------------------------- 
+ 
+SELECT  
+
+    i.ItemID,               -- Item identifier from Inventory 
+
+i.Item, -- Item Number 
+
+i.Active, -- Active/Inactive Item 
+
+    i.Description,         -- Item description from Inventory 
+
+i.InventoryCodeID,     -- Inventory Code 
+
+c.Category,           -- Item Category 
+
+mo.Model -- Item Model 
+
+FROM dbo.ICItems i 
+
+LEFT JOIN dbo.ICCategories c ON i.CategoryID = c.CategoryID 
+
+LEFT join ICModels mo on i.modelID = mo.modelID 
+
+WHERE mo.Model LIKE '%Sharp%' 
+
+AND i.InventoryCodeID = 'Equipment' 
+ 
+------------------------------------------------------------------------------------------------------------------------------------------- 
+  -- Listing column names Alphabetically 
+
+  
+
+SELECT COLUMN_NAME 
+
+FROM INFORMATION_SCHEMA.COLUMNS 
+
+WHERE TABLE_NAME = 'ICItems' AND TABLE_SCHEMA = 'dbo' 
+
+ORDER BY COLUMN_NAME; 
+  
+------------------------------------------------------------------------------------------------------------------------------------------ 
+
+  
+
+-- Listing Related Items 
+
+  
+
+SELECT i.item [Parent ItemNumber] , 
+
+--i.baseoutcost, 
+
+--i.OnHandQty [General Model Hand Qyt], 
+
+--icw.OnHandQty[ICW OnHand Qty], 
+
+--icw.Allocated, 
+
+--w.Description [Warehouse Description], 
+
+--r. itemID[Related ItemID], 
+
+r.item [Related ItemNumber], 
+
+c.Category, 
+
+r.Description [Related ItemDescription] 
+
+--r.LastUpdate, 
+
+--mo.Model [Model], 
+
+--mo.Description [Model Description] 
+
+from ICItems i 
+
+    LEFT JOIN ICItemRelatedItems ir on i.itemID = ir.itemID 
+
+LEFT JOIN dbo.ICCategories c ON i.CategoryID = c.CategoryID 
+
+    LEFT join icitems r on r.ItemID = ir.RelatedItemID 
+
+LEFT join ICModels mo on i.modelID = mo.modelID 
+
+-- join ICItemWarehouses icw on icw.ItemID = i.itemID 
+
+-- join ICWarehouses w on w.warehouseid = icw.warehouseid 
+
+Where i.Active = 1 --and r.categoryID = 17  
+
+and  
+
+i.item in ( 
+
+'INSERT ITEM NUMBER HERE' 
+
+) 
+
+--and c.Category = 'Sup' 
+
+--and r.item NOT LIKE ('%Disc%') 
+
+--and r.item NOT LIKE ('%White%') 
+
+--and r.item NOT LIKE ('%freight%') 
+
+--and (r.item LIKE '9DEL%' 
+
+--OR r.item LIKE '9NET%') 
+
+  
+
+ORDER BY [Related ItemNumber] 
+ 
+ 
+-- Excluding Parts 
+ 
+SELECT  
+
+    i.item AS [Parent ItemNumber], 
+
+    r.item AS [Related ItemNumber], 
+
+    rc.Category AS [Related ItemCategory],  -- using rc instead of c 
+
+    r.Description AS [Related ItemDescription] 
+
+FROM ICItems i 
+
+    LEFT JOIN ICItemRelatedItems ir ON i.itemID = ir.itemID 
+
+    LEFT JOIN ICItems r ON r.ItemID = ir.RelatedItemID 
+
+    LEFT JOIN dbo.ICCategories rc ON r.CategoryID = rc.CategoryID  -- related item category 
+
+    LEFT JOIN ICModels mo ON i.modelID = mo.modelID 
+
+WHERE i.Active = 1 
+
+  AND i.item IN ('INSERT ITEM NUMBER HERE') 
+
+  AND rc.Category NOT LIKE ('%Parts%') 
+
+  AND rc.Category NOT LIKE ('%Sup%') 
+
+  AND rc.Category NOT LIKE ('%Drum%') 
+
+  AND rc.Category NOT LIKE ('%Non%') 
+
+ORDER BY [Related ItemNumber]; 
+ 
+------------------------------------------------------------------------------------------------------------------------------------------ 
+ 
+-- Selecting GL Codes 
+ 
+SELECT 
+
+gl.AccountName, 
+
+gl.AccountNumber, 
+
+gl.AccountTypeID 
+
+FROM dbo.GLAccounts gl 
+
+WHERE gl.AccountNumber IN ('ITMAIN','ITLABOR') 
+
+ORDER BY gl.AccountName 
+ 
+------------------------------------------------------------------------------------------------------------------------------------------ 
+ 
+--- Finding items with "Accessories" in Custom Properties (2 Parts) 
+
+ 
+-- (1/2) Defining Custom Properties from Attribute Names/Codes  
+ 
 
 SELECT 
-    i.item AS [Parent ItemNumber],
-    r.item AS [Related ItemNumber],
-    rc.Category AS [Related ItemCategory],  -- using rc instead of c
-    r.Description AS [Related ItemDescription]
-FROM ICItems i
-    LEFT JOIN ICItemRelatedItems ir ON i.itemID = ir.itemID
-    LEFT JOIN ICItems r ON r.ItemID = ir.RelatedItemID
-    LEFT JOIN dbo.ICCategories rc ON r.CategoryID = rc.CategoryID  -- related item category
-    LEFT JOIN ICModels mo ON i.modelID = mo.modelID
-WHERE i.Active = 1
-  AND i.item IN ('ENTER EA PRODUCT CODE HERE')
-ORDER BY [Related ItemNumber];
 
+s.AttributeName, 
 
--- Displays General Related Items --
+s.ShAttributeID 
 
-SELECT i.item [Parent ItemNumber] ,
---i.baseoutcost,
---i.OnHandQty [General Model Hand Qyt],
---icw.OnHandQty[ICW OnHand Qty],
---icw.Allocated,
---w.Description [Warehouse Description],
---r. itemID[Related ItemID],
-r.item [Related ItemNumber],
-c.Category,
-r.Description [Related ItemDescription]
---r.LastUpdate,
---mo.Model [Model],
---mo.Description [Model Description]
-from ICItems i
-    LEFT JOIN ICItemRelatedItems ir on i.itemID = ir.itemID
-	LEFT JOIN dbo.ICCategories c ON i.CategoryID = c.CategoryID
-    LEFT join icitems r on r.ItemID = ir.RelatedItemID
- LEFT join ICModels mo on i.modelID = mo.modelID
--- join ICItemWarehouses icw on icw.ItemID = i.itemID
--- join ICWarehouses w on w.warehouseid = icw.warehouseid
-Where i.Active = 1 --and r.categoryID = 17 
-and 
-i.item in (
-'ENTER EA PRODUCT CODE HERE'
-)
---and c.Category = 'Sup'
---and r.Description NOT LIKE ('%Developer%')
---and r.Description NOT LIKE ('%Drum%')
---and r.item NOT LIKE ('%Disc%')
---and r.item NOT LIKE ('%White%')
---and r.item NOT LIKE ('%freight%')
---and (r.item LIKE '9DEL%'
---OR r.item LIKE '9NET%')
+FROM dbo.ShAttributes s 
 
-ORDER BY [Related ItemNumber]
+WHERE s.ShAttributeID IN ('2167','2168','2169') -- corresponds to "SF Category", "SF ProductType", "SF RecordType" 
 
+--ORDER BY s.ShAttributeID 
 
+ORDER BY s.AttributeName 
 
+  
+ 
+-- (2/2) Finding "Accessories" that should be changed to "Accessory" 
 
+  
 
+SELECT 
 
+    i.Item, 
 
+    i.Description, 
 
+    icp.ShAttributeID, 
 
+    CASE icp.ShAttributeID 
 
+        WHEN 2167 THEN 'SF Category' -- assigning Custom Property description from AttributeID/AttributeName query 
 
+        WHEN 2168 THEN 'SF ProductType' -- assigning Custom Property description from AttributeID/AttributeName query 
 
+        WHEN 2169 THEN 'SF RecordType' -- assigning Custom Property description from AttributeID/AttributeName query 
 
+        ELSE 'Other' 
 
+    END AS Custom Property, 
 
+    icp.TextVal, 
 
+    icp.CreatorID, 
 
+    icp.CreateDate 
 
+FROM dbo.ICItems AS i 
 
+LEFT JOIN dbo.ICItemCustomProperties AS icp 
+
+    ON i.ItemID = icp.ItemID 
+
+WHERE icp.TextVal IN ('Accessories') 
+
+ORDER BY Custom Property; 
+ 
+ 
+------------------------------------------------------------------------------------------------------------------------------------------ 
+
+  
+ 
+-- Equipment, Parts, & Supplies Post-Cleanup Tool (Work in Progress) 
+
+  
+
+SELECT  
+
+    i.ItemID,               -- Item identifier from Inventory 
+
+i.Item, -- Item Number 
+
+    i.Description,          -- Item description from Inventory 
+
+i.UsageLimitMeterTypeID, -- Item Usage Limit Meter Type 
+
+i.BaseOutCost, -- Item Base Out Cost 
+
+i.DefaultPrice, 
+
+  
+
+  
+
+FROM dbo.ICItems i  
