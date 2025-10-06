@@ -2,7 +2,7 @@
 
 A collection of Microsoft SQL Server scripts for analyzing ERP and inventory data.
 
-## 📂 Contents
+## Contents
 | Script | Description |
 |--------|--------------|
 | `table_and_column_search.sql` | Find tables or columns by name patterns |
@@ -13,10 +13,10 @@ A collection of Microsoft SQL Server scripts for analyzing ERP and inventory dat
 | `custom_properties_accessories.sql` | Standardize “Accessory” custom property values |
 | `equipment_cleanup_tool.sql` | WIP tool for classifying inventory items |
 
-## 🧩 Database
+## Database
 Designed for Microsoft SQL Server environments.  
 Ensure you have read-only access before running analytics queries.
 
-## 🧑‍💻 Author
+## Author
 Alec Gremer  
-📅 Created: October 2025
+Created: October 2025
